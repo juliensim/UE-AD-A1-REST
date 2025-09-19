@@ -36,7 +36,7 @@ def get_user_byid(userid):
     return make_response(jsonify({"error":"user ID not found"}),500)
 
 @app.route("/usersbyname", methods=['GET'])
-def get_user_bytitle():
+def get_user_byname():
     json = ""
     if request.args:
         req = request.args
@@ -56,8 +56,6 @@ def add_user(userid):
 
     for user in users:
         if str(user["id"]) == str(userid):
-            print(user["id"])
-            print(userid)
             return make_response(jsonify({"error":"user ID already exists"}),500)
 
     users.append(req)
