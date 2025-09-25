@@ -34,6 +34,24 @@ def get_booking_byid(userid):
             return res
     return make_response(jsonify({"error":"booking ID not found"}),500)
 
+@app.route("/bookingdetails/<userid>", methods=['GET'])
+def get_booking_details(userid):
+    for booking in bookings:
+        if str(booking["userid"]) == str(userid):
+            pre_res = {}
+            pre_res["user"] = requests.get('http://localhost:3203/users/' + str(booking["userid"])).json()
+            pre_res["dates"] = [{} for i in range(len(booking["dates"]))]
+            print("ici : " + str(pre_res))
+            for date in range(0,len(booking["dates"])):
+                pre_res["dates"][date]["movies"] = ["" for i in booking["dates"][date]["movies"]]
+                pre_res["dates"][date]["date"] = booking["dates"][date]["date"]
+                for movie in range(0,len(booking["dates"][date]["movies"])):
+                    print(pre_res)
+                    pre_res["dates"][date]["movies"][movie] = requests.get('http://localhost:3200/movies/' + str(booking["dates"][date]["movies"][movie])).json()
+            res = make_response(jsonify(pre_res),200)
+            return res
+    return make_response(jsonify({"error":"booking ID not found"}),500)
+
 @app.route("/bookings/<userid>", methods=['POST'])
 def add_booking(userid):
     req = request.get_json()
@@ -41,6 +59,20 @@ def add_booking(userid):
     for booking in bookings:
         if str(booking["userid"]) == str(userid):
             return make_response(jsonify({"error":"booking ID already exists"}),500)
+        
+    for date in req["dates"]:
+        schedule = requests.get('http://localhost:3202/schedule/' + str(date["date"])).json()
+        for movie in date["movies"]:
+            print(movie)
+            print(date["date"])
+            present = False
+            for schedule_movie in schedule:
+                print("current_movie : " + schedule_movie)
+                if schedule_movie == movie:
+                    present = True
+            if not(present):
+                return make_response(jsonify({"error":"one of the movies is not scheduled for the date"}),500)
+                
 
     bookings.append(req)
     write(bookings)
