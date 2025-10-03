@@ -1,5 +1,4 @@
-from flask import Flask, render_template, request, jsonify, make_response
-import requests
+from flask import Flask, render_template, request, jsonify, make_response, g
 import json
 from werkzeug.exceptions import NotFound
 
@@ -10,6 +9,16 @@ HOST = '0.0.0.0'
 
 with open('{}/databases/users.json'.format("."), "r") as jsf:
    users = json.load(jsf)["users"]
+
+@app.before_request
+def check_user():
+    userid = request.headers.get("X-User")
+    
+    for user in users:
+        if user["id"] == userid:
+            g.current_user = user
+            return
+    return jsonify({"error": "Unauthorized"}), 401
 
 def write(users):
     with open('{}/databases/users.json'.format("."), 'w') as f:
@@ -52,6 +61,9 @@ def get_user_byname():
 
 @app.route("/users/<userid>", methods=['POST'])
 def add_user(userid):
+    if g.current_user["role"] != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+
     req = request.get_json()
 
     for user in users:
@@ -65,6 +77,9 @@ def add_user(userid):
 
 @app.route("/users/<userid>", methods=['PUT'])
 def update_user(userid):
+    if g.current_user["role"] != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+    
     req = request.get_json()
 
     for user in users:
@@ -80,6 +95,9 @@ def update_user(userid):
 
 @app.route("/users/<userid>", methods=['DELETE'])
 def del_user(userid):
+    if g.current_user["role"] != "admin":
+        return jsonify({"error": "Unauthorized"}), 401
+    
     for user in users:
         if str(user["id"]) == str(userid):
             users.remove(user)
