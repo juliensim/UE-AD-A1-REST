@@ -1,11 +1,9 @@
 from flask import Flask, request, jsonify, make_response
 import json
-import sys
-from werkzeug.exceptions import NotFound
 
 app = Flask(__name__)
 
-PORT = 3200
+PORT = 3001
 HOST = '0.0.0.0'
 
 with open('{}/databases/movies.json'.format("."), 'r') as jsf:

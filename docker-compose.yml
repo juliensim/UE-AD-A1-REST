@@ -1,7 +1,30 @@
 services:
   movie:
     build: ./movie/
+    restart: always
     ports:
-      - "3200:3200"
-  # to continue
+      - "3001:3001"
+  booking:
+    build: ./booking/
+    restart: always
+    ports:
+      - "3002:3002"
+  schedule:
+    build: ./schedule/
+    restart: always
+    ports:
+      - "3003:3003"
+  user:
+    build: ./user/
+    restart: always
+    ports:
+      - "3004:3004"
+  mongo:
+    image: mongo
+    restart: always
+    ports: 
+    - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: username
+      MONGO_INITDB_ROOT_PASSWORD: password
 

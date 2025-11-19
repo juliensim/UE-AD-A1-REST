@@ -1,11 +1,10 @@
 from flask import Flask, render_template, request, jsonify, make_response
 import requests
 import json
-from werkzeug.exceptions import NotFound
 
 app = Flask(__name__)
 
-PORT = 3201
+PORT = 3002
 HOST = '0.0.0.0'
 
 with open('{}/databases/bookings.json'.format("."), "r") as jsf:

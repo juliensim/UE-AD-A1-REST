@@ -4,7 +4,7 @@ from werkzeug.exceptions import NotFound
 
 app = Flask(__name__)
 
-PORT = 3203
+PORT = 3004
 HOST = '0.0.0.0'
 
 with open('{}/databases/users.json'.format("."), "r") as jsf:

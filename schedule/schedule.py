@@ -1,10 +1,9 @@
 from flask import Flask, render_template, request, jsonify, make_response
 import json
-from werkzeug.exceptions import NotFound
 
 app = Flask(__name__)
 
-PORT = 3202
+PORT = 3003
 HOST = '0.0.0.0'
 
 with open('{}/databases/times.json'.format("."), "r") as jsf:
