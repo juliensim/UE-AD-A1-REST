@@ -8,25 +8,28 @@ app = Flask(__name__)
 PORT = 3004
 HOST = '0.0.0.0'
 
-with open('{}/databases/users.json'.format("."), "r") as jsf:
-   users = json.load(jsf)["users"]
+def Initialisation():
+    with open('{}/databases/users.json'.format("."), "r") as jsf:
+        users_json = json.load(jsf)["users"]
 
-def init_Mongo():
-    client = MongoClient("mongodb://username:password@127.0.0.1:3000/")
+    #client = MongoClient("mongodb://username:password@127.0.0.1:3000/") #version locale
+    client = MongoClient("mongodb://username:password@mongo:27017/") #version mongo
     db = client["users"]
     collection = db["users"]
-    collection.insert_many(users)
+    if list(collection.find()) == [] :
+        collection.insert_many(users_json)
+    return collection
 
-init_Mongo()
+users = Initialisation()
 
 @app.before_request
 def check_user():
     token = request.headers.get("X-Token")
     g.permission_level = "None"
-    for user in users:
-        if user["access_token"] == token:
-            g.permission_level = user["role"]
-            return 
+    user = users.find_one({"access_token": token})
+    if user:
+        g.permission_level = user["role"]
+        return
     return make_response(jsonify({"error": "Unauthorized"}), 401)
 
 def check_permission_level(permission_required):
@@ -50,17 +53,17 @@ def home():
 def get_json():
     if not(check_permission_level("admin")) :
         return make_response(jsonify({"error": "Unauthorized"}), 401)
-
-    return make_response(jsonify(users),200)
+    res = list(users.find({},{"_id":0}))
+    return make_response(dumps(res),200)
 
 @app.route("/users/<userid>", methods=['GET'])
 def get_user_byid(userid):
     if not(check_permission_level("user")) :
         return make_response(jsonify({"error": "Unauthorized"}), 401)
 
-    for user in users:
-        if str(user["id"]) == str(userid):
-            return make_response(jsonify({key: user[key] for key in ["id","name","last_active","role"]}),200)
+    user = users.find_one({"id": userid},{"_id":0,"access_token":0})
+    if user:
+        return make_response(dumps(user),200)
     return make_response(jsonify({"error":"user ID not found"}),500)
 
 @app.route("/usersbyname", methods=['GET'])
@@ -69,9 +72,9 @@ def get_user_byname():
         return make_response(jsonify({"error": "Unauthorized"}), 401)
 
     if request.args:
-        for user in users:
-            if str(user["name"]) == str(request.args["name"]):
-                return make_response(jsonify({key: user[key] for key in ["id","name","last_active","role"]}),200)
+        user = users.find_one({"name": request.args["name"]},{"_id":0,"access_token":0})
+        if user:
+            return make_response(dumps(user),200)
 
     return make_response(jsonify({"error":"user name not found"}),500)
 
@@ -80,12 +83,11 @@ def add_user(userid):
     if not(check_permission_level("admin")) :
         return make_response(jsonify({"error": "Unauthorized"}), 401)
 
-    for user in users:
-        if str(user["id"]) == str(userid):
-            return make_response(jsonify({"error":"user ID already exists"}),500)
+    user = users.find_one({"id": userid})
+    if user:
+        return make_response(jsonify({"error":"user ID already exists"}),500)
 
-    users.append(request.get_json())
-    write(users)
+    users.insert_one(request.get_json())
     return make_response(jsonify({"message":"user added"}),200)
 
 @app.route("/users/<userid>", methods=['PUT'])
@@ -93,13 +95,10 @@ def update_user(userid):
     if not(check_permission_level("admin")) :
         return make_response(jsonify({"error": "Unauthorized"}), 401)
 
-    for user in users:
-        if str(user["id"]) == str(userid):
-            req = request.get_json()
-            for key in req.keys():
-                user[key] = req[key]
-            write(users)
-            return make_response(jsonify(user),200)
+    users.update_one({"id":userid},{"$set":request.get_json()})
+    user = users.find_one({"id":userid},{"_id":0})
+    if user:
+        return make_response(dumps(user),200)
 
     return make_response(jsonify({"error":"user ID not found"}),500)
 
@@ -108,11 +107,10 @@ def del_user(userid):
     if not(check_permission_level("admin")) :
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    for user in users:
-        if str(user["id"]) == str(userid):
-            users.remove(user)
-            write(users)
-            return make_response(jsonify({"message":"user deleted"}),200)
+    user = users.find_one({"id": userid})
+    if user:
+        users.delete_one({"id":userid})
+        return make_response(jsonify({"message":"user deleted"}),200)
 
     return make_response(jsonify({"error":"user ID not found"}),500)
 
