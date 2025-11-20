@@ -1,0 +1,277 @@
+openapi: 3.0.0
+info:
+  title: User API
+  version: 1.0.0
+  description: >
+    API du service User permettant de gérer les utilisateurs, leurs rôles
+    et l’authentification utilisée par les autres services.
+    L'accès utilise un header `X-Token` pour les droits d'accès.
+
+tags:
+- name: admin
+  description: Secured Admin-only calls
+- name: user
+  description: Operations available to regular users
+
+servers:
+  - url: http://localhost:3004
+
+components:
+  securitySchemes:
+    TokenAuth:
+      type: apiKey
+      in: header
+      name: X-Token
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "2e04f1f9-a555-4b76-b58d-2789ad90e5ac"
+        name:
+          type: string
+          example: "Alice"
+        role:
+          type: string
+          example: "admin"
+        access_token:
+          type: string
+          example: "f82a9c0f782b41918a9d888c456acc28"
+      additionalProperties: true
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - invalid or missing token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+
+paths:
+
+  /:
+    get:
+      summary: home page of the service
+      description: |
+        Welcome page.
+      operationId: home
+      responses:
+        "200":
+          description: welcome message
+          content:
+            text/html:
+              schema:
+                type: string
+                example: <h1 style='color:blue'>Welcome to the User service!</h1>
+
+  /users/auth:
+    get:
+      summary: Vérifie la validité du token
+      description: |
+        Vérifie si l'utilisateur existe via son `X-Token`.
+      parameters: []
+      responses:
+        200:
+          description: Valid user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: correct user
+        401:
+          description: Unknown user
+
+  /users/check/{permission_required}:
+    get:
+      summary: Vérifie le niveau de permission
+      description: |
+        Retourne 200 si l'utilisateur possède la permission requise.
+      parameters:
+        - in: path
+          name: permission_required
+          required: true
+          schema:
+            type: string
+            enum: ["admin", "user"]
+      responses:
+        200:
+          description: Authorized
+        401:
+          description: Unauthorized
+
+  /json:
+    get:
+      tags:
+        - admin
+      summary: Retourne tous les utilisateurs
+      description: >
+        Nécessite les permissions `admin`.  
+        Retourne tous les utilisateurs présents dans MongoDB.
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Liste des utilisateurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /users/{userid}:
+    get:
+      tags:
+      - user
+      summary: Récupère un utilisateur par ID
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: userid
+          schema:
+            type: string
+          required: true
+          description: ID de l’utilisateur
+      responses:
+        200:
+          description: Utilisateur correspondant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: user ID not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: user ID not found
+
+    post:
+      tags:
+      - admin
+      summary: Ajoute un utilisateur
+      description: Nécessite les permissions `admin`.
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        200:
+          description: user added
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: user ID already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: user ID already exists
+
+    put:
+      tags:
+      - admin
+      summary: Met à jour un utilisateur
+      description: Nécessite les permissions `admin`.
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        200:
+          description: Utilisateur mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: user ID not found
+
+    delete:
+      tags:
+      - admin
+      summary: Supprime un utilisateur
+      description: Nécessite les permissions `admin`.
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: user deleted
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: user ID not found
+
+  /users/byname:
+    get:
+      tags:
+      - user
+      summary: Récupère un utilisateur via son nom
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Utilisateur correspondant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: user name not found

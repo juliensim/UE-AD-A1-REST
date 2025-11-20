@@ -1,0 +1,216 @@
+openapi: 3.0.0
+info:
+  title: Booking API
+  version: 1.0.0
+  description: >
+    API du service Booking permettant de gérer les réservations
+    d’un utilisateur.  
+    L'accès est protégé par authentification via l'API User
+    à l’aide d’un header `X-Token`.
+
+tags:
+- name: admin
+  description: Secured Admin-only calls
+- name: user
+  description: Operations available to regular users
+
+servers:
+  - url: http://localhost:3002
+
+components:
+  securitySchemes:
+    TokenAuth:
+      type: apiKey
+      in: header
+      name: X-Token
+
+  schemas:
+    Booking:
+      type: object
+      properties:
+        userid:
+          type: string
+          example: "john_doe"
+        dates:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                example: "20151205"
+              movies:
+                type: array
+                items:
+                  type: string
+                  example: "39ab85e5-5e8e-4dc5-afea-65dc368bd7ab"
+      additionalProperties: true
+
+    BookingDetails:
+      type: object
+      properties:
+        user:
+          type: object
+          description: Informations complètes retournées par le User API
+        dates:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              movies:
+                type: array
+                items:
+                  type: object
+                  description: Détails complets du film (réponse Movie API)
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - invalid or missing token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+
+paths:
+  /:
+    get:
+      summary: home page of the service
+      description: Welcome message
+      operationId: home
+      responses:
+        "200":
+          description: welcome message
+          content:
+            text/html:
+              schema:
+                type: string
+                example: <h1 style='color:blue'>Welcome to the Booking service!</h1>
+
+  /json:
+    get:
+      tags:
+        - admin
+      summary: Retourne toutes les réservations
+      description: >
+        Nécessite les permissions `admin`.  
+        Retourne toutes les réservations enregistrées.
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Liste des réservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /bookings/{userid}:
+    get:
+      tags:
+        - user
+      summary: Récupère une réservation par ID utilisateur
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Réservation trouvée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: booking ID not found
+
+    post:
+      tags:
+        - admin
+      summary: Ajoute une réservation
+      description: Nécessite les permissions `admin`.
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Booking"
+      responses:
+        200:
+          description: Réservation ajoutée
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: Booking ID already exists or invalid movie/date
+
+    delete:
+      tags:
+        - admin
+      summary: Supprime une réservation
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Réservation supprimée
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: booking ID not found
+
+  /bookingdetails/{userid}:
+    get:
+      tags:
+        - user
+      summary: Récupère une réservation détaillée (user + films + dates)
+      description: >
+        Pour chaque date d’une réservation, récupère :  
+        - les infos complètes de l'utilisateur (User API)  
+        - les infos complètes de chaque film (Movie API)
+      parameters:
+        - in: path
+          name: userid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Réservation détaillée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingDetails"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: booking ID not found

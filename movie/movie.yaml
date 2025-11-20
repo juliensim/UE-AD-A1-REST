@@ -1,26 +1,57 @@
-openapi: 3.1.1
+openapi: 3.0.0
 info:
   title: Movie API
-  summary: This is the API of the Movie service
-  description: a looongggggg description
-  contact:
-    name: Helene Coullon
-    url: https://helene-coullon.fr/
-    email: helene.coullon@imt-atlantique.fr
-  license:
-    name: GPL v3
-    url: https://www.gnu.org/licenses/gpl-3.0.en.html
   version: 1.0.0
+  description: >
+    API du service Movie permettant de gérer des films.
+    L'accès est protégé par authentification via l'API User
+    par un header `X-Token`.
 tags:
-- name: admins
+- name: admin
   description: Secured Admin-only calls
-- name: developers
-  description: Operations available to regular developers
+- name: user
+  description: Operations available to regular users
+
+servers:
+  - url: http://localhost:3001
+
+components:
+  securitySchemes:
+    TokenAuth:
+      type: apiKey
+      in: header
+      name: X-Token
+  schemas:
+    Movie:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 276c79ec-a26a-40a6-b3d3-fb242a5947b6
+        title:
+          type: string
+          example: "The Danish Girl"
+        rating:
+          type: number
+          example: 5.3
+        director:
+          type: string
+          example: "Tom Hooper"
+      additionalProperties: true
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - invalid or missing token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
 paths:
   /:
     get:
-      tags:
-      - developers
       summary: home page of the service
       description: |
         Nothing to do
@@ -36,180 +67,168 @@ paths:
   /json:
     get:
       tags:
-      - developers
-      summary: get the full JSON database
-      description: |
-        Nothing to do
-      operationId: get_json
+        - admin
+      summary: Retourne tous les films
+      description: >
+        Nécessite les permissions `admin`.  
+        Retourne tous les films présents dans MongoDB.
+      security:
+        - TokenAuth: []
       responses:
-        "200":
-          description: full JSON
+        200:
+          description: Liste des films
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AllMovies'
+                type: array
+                items:
+                  $ref: "#/components/schemas/Movie"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+
   /movies/{movieid}:
     get:
       tags:
-      - developers
-      summary: get the movie by its id
-      description: By passing in the appropriate options, you can get info of a Movie
-      operationId: get_movie_byid
+      - user
+      summary: Récupère un film par ID
       parameters:
-      - name: movieid
-        in: path
-        description: Movie ID.
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: movieid
+          required: true
+          schema:
+            type: string
+          description: ID du film
+      security:
+        - TokenAuth: []
       responses:
-        "200":
-          description: Movie description
+        200:
+          description: Film correspondant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MovieItem'
-        "400":
-          description: bad input parameter
+                $ref: "#/components/schemas/Movie"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: Movie ID not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Movie ID not found
+
     post:
       tags:
-      - admins
-      summary: add a movie item
-      description: Adds a movie to the system
-      operationId: create_movie
+        - admin
+      summary: Ajoute un film
+      description: Nécessite les permissions `admin`.
       parameters:
-      - name: movieid
-        in: path
-        description: Movie ID.
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
+        - in: path
+          name: movieid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
       requestBody:
-        description: Inventory item to add
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MovieItem'
+              $ref: "#/components/schemas/Movie"
       responses:
-        "200":
-          description: Movie created
+        200:
+          description: Film ajouté
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: Movie ID already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MovieItem'
-        "409":
-          description: an existing item already exists
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: movie ID already exists
+
     delete:
       tags:
-      - admins
-      summary: delete a movie item
-      description: Adds a movie to the system
-      operationId: del_movie
+        - admin
+      summary: Supprime un film
+      description: Nécessite les permissions `admin`.
       parameters:
-      - name: movieid
-        in: path
-        description: Movie ID.
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
+        - in: path
+          name: movieid
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
       responses:
-        "200":
-          description: item deleted
-        "400":
-          description: ID not found
-  /moviesbytitle:
-    get:
-      tags:
-      - developers
-      summary: get the movie by its title
-      description: |
-        By passing in the appropriate options, you can get Movie info
-      operationId: get_movie_bytitle
-      parameters:
-      - name: title
-        in: query
-        description: pass a title
-        required: true
-        style: form
-        explode: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Movie item
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MovieItem'
-        "400":
-          description: bad input parameter
+        200:
+          description: Film supprimé
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: Movie ID not found
+
   /movies/{movieid}/{rate}:
     put:
       tags:
-      - admins
-      summary: update a movie rate
-      description: update the rating of a movie
-      operationId: update_movie_rating
+        - admin
+      summary: Met à jour la note d’un film
+      description: Nécessite les permissions `admin`.
       parameters:
-      - name: movieid
-        in: path
-        description: Movie ID.
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      - name: rate
-        in: path
-        description: Movie rating.
-        required: true
-        style: simple
-        explode: false
-        schema:
-          maximum: 10
-          minimum: 0
-          type: integer
+        - in: path
+          name: movieid
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rate
+          required: true
+          schema:
+            type: string
+          description: Nouvelle note du film
+      security:
+        - TokenAuth: []
       responses:
-        "200":
-          description: rate updated
-        "400":
-          description: movie ID not found
-components:
-  schemas:
-    AllMovies:
-      type: object
-      required:
-        - movies
-      properties:
-        movies:
-          type: array
-          items:
-            type: object
-            properties:
-              $ref: '#/components/schemas/MovieItem'
-    MovieItem:
-      type: object
-      required:
-        - title
-        - rating
-        - director
-        - id
-      properties:
-        title:
-          type: string
-          example: The Martian
-        rating:
-          type: integer
-          example: 7
-        director:
-          type: string
-          example: Paul McGuigan
-        id:
-          type: string
-          example: 39ab85e5-5e8e-4dc5-afea-65dc368bd7ab
+        200:
+          description: Film mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: Movie ID not found
 
-
+  /moviesbytitle:
+    get:
+      tags:
+      - user
+      summary: Récupère un film via son titre
+      parameters:
+        - in: query
+          name: title
+          required: true
+          schema:
+            type: string
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Film correspondant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Movie"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: movie title not found

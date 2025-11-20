@@ -1,0 +1,187 @@
+openapi: 3.0.0
+info:
+  title: Schedule API
+  version: 1.0.0
+  description: >
+    API du service Schedule permettant de gérer les horaires
+    et dates de diffusion des films.  
+    L'accès est protégé via un header `X-Token` vérifié auprès du User API.
+
+tags:
+- name: admin
+  description: Secured Admin-only calls
+- name: user
+  description: Operations available to regular users
+
+servers:
+  - url: http://localhost:3003
+
+components:
+  securitySchemes:
+    TokenAuth:
+      type: apiKey
+      in: header
+      name: X-Token
+
+  schemas:
+    Schedule:
+      type: object
+      properties:
+        date:
+          type: string
+          example: "20151205"
+        movies:
+          type: array
+          items:
+            type: string
+            example: "39ab85e5-5e8e-4dc5-afea-65dc368bd7ab"
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized - invalid or missing token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+
+paths:
+  /:
+    get:
+      summary: home page of the service
+      description: Welcome message
+      operationId: home
+      responses:
+        "200":
+          description: welcome message
+          content:
+            text/html:
+              schema:
+                type: string
+                example: <h1 style='color:blue'>Welcome to the Schedule service!</h1>
+
+  /json:
+    get:
+      tags:
+        - admin
+      summary: Retourne tous les horaires (dates + films)
+      description: Nécessite les permissions `admin`
+      security:
+        - TokenAuth: []
+      responses:
+        200:
+          description: Liste des dates avec les films associés
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Schedule"
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /schedules/{date}:
+    get:
+      tags:
+        - user
+      summary: Retourne la liste des films pour une date donnée
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: date
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Liste des films pour cette date
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: No movie found for the date
+
+  /schedules/date/{movieid}:
+    get:
+      tags:
+        - user
+      summary: Retourne toutes les dates où un film est diffusé
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: movieid
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Dates associées à ce film
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: No movie found
+
+  /schedules/{date}/{movieid}:
+    post:
+      tags:
+        - admin
+      summary: Ajoute un film à une date (ou crée la date)
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: date
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: movieid
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Film ajouté (ou date créée)
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+
+    delete:
+      tags:
+        - admin
+      summary: Supprime un film d’une date (ou la date entière si dernier film)
+      security:
+        - TokenAuth: []
+      parameters:
+        - in: path
+          name: date
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: movieid
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Film ou date supprimé
+        401:
+          $ref: "#/components/responses/UnauthorizedError"
+        500:
+          description: date or movie ID not found
