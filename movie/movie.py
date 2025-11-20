@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, make_response
 import requests
 import json
+from pymongo import MongoClient
+from bson.json_util import dumps
 import os
 from dotenv import load_dotenv
 
@@ -11,9 +13,18 @@ app = Flask(__name__)
 PORT = 3001
 HOST = '0.0.0.0'
 
-with open('{}/databases/movies.json'.format("."), 'r') as jsf:
-    movies = json.load(jsf)["movies"]
-    print(movies)
+def Initialisation():
+    with open('{}/databases/movies.json'.format("."), 'r') as jsf:
+        movies_json = json.load(jsf)["movies"]
+
+    client = MongoClient(os.getenv("MONGO_" + os.getenv("MODE")))
+    db = client["movies"]
+    collection = db["movies"]
+    if list(collection.find()) == [] :
+        collection.insert_many(movies_json)
+    return collection
+
+movies = Initialisation()
 
 def write(movies):
     with open('{}/databases/movies.json'.format("."), 'w') as f:
@@ -41,17 +52,17 @@ def get_json():
     if not(check_permission("admin")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    return make_response(jsonify(movies),200)
+    res = list(movies.find({},{"_id":0}))
+    return make_response(dumps(res),200)
 
 @app.route("/movies/<movieid>", methods=['GET'])
 def get_movie_byid(movieid):
     if not(check_permission("user")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    for movie in movies:
-        if str(movie["id"]) == str(movieid):
-            res = make_response(jsonify(movie),200)
-            return res
+    movie = movies.find_one({"id": movieid},{"_id":0})
+    if movie:
+        return make_response(dumps(movie),200)
     return make_response(jsonify({"error":"Movie ID not found"}),500)
 
 @app.route("/moviesbytitle", methods=['GET'])
@@ -59,65 +70,48 @@ def get_movie_bytitle():
     if not(check_permission("user")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    json = ""
     if request.args:
-        req = request.args
-        for movie in movies:
-            if str(movie["title"]) == str(req["title"]):
-                json = movie
+        movie = movies.find_one({"title": request.args["title"]},{"_id":0})
+        if movie:
+            return make_response(dumps(movie),200)
 
-    if not json:
-        res = make_response(jsonify({"error":"movie title not found"}),500)
-    else:
-        res = make_response(jsonify(json),200)
-    return res
+    return make_response(jsonify({"error":"movie title not found"}),500)
 
 @app.route("/movies/<movieid>", methods=['POST'])
 def add_movie(movieid):
     if not(check_permission("admin")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    req = request.get_json()
+    movie = movies.find_one({"id": movieid})
+    if movie:
+        return make_response(jsonify({"error":"movie ID already exists"}),500)
 
-    for movie in movies:
-        if str(movie["id"]) == str(movieid):
-            print(movie["id"])
-            print(movieid)
-            return make_response(jsonify({"error":"movie ID already exists"}),500)
-
-    movies.append(req)
-    write(movies)
-    res = make_response(jsonify({"message":"movie added"}),200)
-    return res
+    movies.insert_one(request.get_json())
+    return make_response(jsonify({"message":"movie added"}),200)
 
 @app.route("/movies/<movieid>/<rate>", methods=['PUT'])
 def update_movie_rating(movieid, rate):
     if not(check_permission("admin")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    for movie in movies:
-        if str(movie["id"]) == str(movieid):
-            movie["rating"] = rate
-            res = make_response(jsonify(movie),200)
-            write(movies)
-            return res
+    movies.update_one({"id":movieid},{"$set":{"rating":rate}})
+    movie = movies.find_one({"id":movieid},{"_id":0})
+    if movie:
+        return make_response(dumps(movie),200)
 
-    res = make_response(jsonify({"error":"movie ID not found"}),500)
-    return res
+    return make_response(jsonify({"error":"movie ID not found"}),500)
 
 @app.route("/movies/<movieid>", methods=['DELETE'])
 def del_movie(movieid):
     if not(check_permission("admin")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
-    for movie in movies:
-        if str(movie["id"]) == str(movieid):
-            movies.remove(movie)
-            write(movies)
-            return make_response(jsonify(movie),200)
-
-    res = make_response(jsonify({"error":"movie ID not found"}),500)
-    return res
+    movie = movies.find_one({"id": movieid})
+    if movie:
+        movies.delete_one({"id":movieid})
+        return make_response(jsonify({"message":"movie deleted"}),200)
+    
+    return make_response(jsonify({"error":"movie ID not found"}),500)
 
 if __name__ == "__main__":
     #p = sys.argv[1]
