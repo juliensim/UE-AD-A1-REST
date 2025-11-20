@@ -2,26 +2,36 @@ services:
   movie:
     build: ./movie/
     restart: always
+    env_file:
+      - .env
     ports:
       - "3001:3001"
   booking:
     build: ./booking/
     restart: always
+    env_file:
+      - .env
     ports:
       - "3002:3002"
   schedule:
     build: ./schedule/
     restart: always
+    env_file:
+      - .env
     ports:
       - "3003:3003"
   user:
     build: ./user/
     restart: always
+    env_file:
+      - .env
     ports:
       - "3004:3004"
   mongo:
     image: mongo
     restart: always
+    env_file:
+      - .env
     ports: 
       - 3000:27017
     environment:

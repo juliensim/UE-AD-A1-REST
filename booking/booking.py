@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request, jsonify, make_response
 import requests
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -16,6 +20,15 @@ def write(bookings):
         full['bookings']=bookings
         json.dump(full, f)
 
+@app.before_request
+def authentification():
+    if requests.get(os.getenv("USER_" + os.getenv("MODE")) + "auth",headers={'X-Token':request.headers.get("X-Token")}).status_code != 200:
+        return make_response(jsonify({"error": "Unknown user"}), 401)
+    return
+
+def check_permission(permission_required):
+    return requests.get(os.getenv("USER_" + os.getenv("MODE")) + "check/" + permission_required,headers={'X-Token':request.headers.get("X-Token")}).status_code == 200
+
 @app.route("/", methods=['GET'])
 def home():
    return "<h1 style='color:blue'>Welcome to the Booking service!</h1>"
@@ -23,10 +36,16 @@ def home():
 
 @app.route("/json", methods=['GET'])
 def get_json():
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     return make_response(jsonify(bookings),200)
 
 @app.route("/bookings/<userid>", methods=['GET'])
 def get_booking_byid(userid):
+    if not(check_permission("user")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for booking in bookings:
         if str(booking["userid"]) == str(userid):
             res = make_response(jsonify(booking),200)
@@ -35,10 +54,13 @@ def get_booking_byid(userid):
 
 @app.route("/bookingdetails/<userid>", methods=['GET'])
 def get_booking_details(userid):
+    if not(check_permission("user")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for booking in bookings:
         if str(booking["userid"]) == str(userid):
             pre_res = {}
-            pre_res["user"] = requests.get('http://localhost:3203/users/' + str(booking["userid"])).json()
+            pre_res["user"] = requests.get(os.getenv("USER_" + os.getenv("MODE")) + str(booking["userid"])).json()
             pre_res["dates"] = [{} for i in range(len(booking["dates"]))]
             print("ici : " + str(pre_res))
             for date in range(0,len(booking["dates"])):
@@ -46,13 +68,16 @@ def get_booking_details(userid):
                 pre_res["dates"][date]["date"] = booking["dates"][date]["date"]
                 for movie in range(0,len(booking["dates"][date]["movies"])):
                     print(pre_res)
-                    pre_res["dates"][date]["movies"][movie] = requests.get('http://localhost:3200/movies/' + str(booking["dates"][date]["movies"][movie])).json()
+                    pre_res["dates"][date]["movies"][movie] = requests.get(os.getenv("MOVIE_" + os.getenv("MODE")) + str(booking["dates"][date]["movies"][movie])).json()
             res = make_response(jsonify(pre_res),200)
             return res
     return make_response(jsonify({"error":"booking ID not found"}),500)
 
 @app.route("/bookings/<userid>", methods=['POST'])
 def add_booking(userid):
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     req = request.get_json()
 
     for booking in bookings:
@@ -60,7 +85,7 @@ def add_booking(userid):
             return make_response(jsonify({"error":"booking ID already exists"}),500)
         
     for date in req["dates"]:
-        schedule = requests.get('http://localhost:3202/schedule/' + str(date["date"])).json()
+        schedule = requests.get('' + str(date["date"])).json()
         for movie in date["movies"]:
             print(movie)
             print(date["date"])
@@ -80,6 +105,9 @@ def add_booking(userid):
 
 @app.route("/bookings/<userid>", methods=['DELETE'])
 def del_booking(userid):
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for booking in bookings:
         if str(booking["userid"]) == str(userid):
             bookings.remove(booking)

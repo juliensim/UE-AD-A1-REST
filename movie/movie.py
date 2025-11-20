@@ -1,5 +1,10 @@
 from flask import Flask, request, jsonify, make_response
+import requests
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -16,6 +21,15 @@ def write(movies):
         full['movies']=movies
         json.dump(full, f)
 
+@app.before_request
+def authentification():
+    if requests.get(os.getenv("USER_" + os.getenv("MODE")) + "auth",headers={'X-Token':request.headers.get("X-Token")}).status_code == 401:
+        return make_response(jsonify({"error": "Unknown user"}), 401)
+    return
+
+def check_permission(permission_required):
+    return requests.get(os.getenv("USER_" + os.getenv("MODE")) + "check/" + permission_required,headers={'X-Token':request.headers.get("X-Token")}).status_code == 200
+
 # root message
 @app.route("/", methods=['GET'])
 def home():
@@ -24,10 +38,16 @@ def home():
 
 @app.route("/json", methods=['GET'])
 def get_json():
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     return make_response(jsonify(movies),200)
 
 @app.route("/movies/<movieid>", methods=['GET'])
 def get_movie_byid(movieid):
+    if not(check_permission("user")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for movie in movies:
         if str(movie["id"]) == str(movieid):
             res = make_response(jsonify(movie),200)
@@ -36,6 +56,9 @@ def get_movie_byid(movieid):
 
 @app.route("/moviesbytitle", methods=['GET'])
 def get_movie_bytitle():
+    if not(check_permission("user")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     json = ""
     if request.args:
         req = request.args
@@ -51,6 +74,9 @@ def get_movie_bytitle():
 
 @app.route("/movies/<movieid>", methods=['POST'])
 def add_movie(movieid):
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     req = request.get_json()
 
     for movie in movies:
@@ -66,6 +92,9 @@ def add_movie(movieid):
 
 @app.route("/movies/<movieid>/<rate>", methods=['PUT'])
 def update_movie_rating(movieid, rate):
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for movie in movies:
         if str(movie["id"]) == str(movieid):
             movie["rating"] = rate
@@ -78,6 +107,9 @@ def update_movie_rating(movieid, rate):
 
 @app.route("/movies/<movieid>", methods=['DELETE'])
 def del_movie(movieid):
+    if not(check_permission("admin")):
+        return make_response(jsonify({"error": "Unauthorized"}), 401)
+    
     for movie in movies:
         if str(movie["id"]) == str(movieid):
             movies.remove(movie)
