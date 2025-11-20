@@ -141,7 +141,7 @@ paths:
 
     post:
       tags:
-        - admin
+        - user
       summary: Ajoute une réservation
       description: Nécessite les permissions `admin`.
       parameters:
@@ -168,7 +168,7 @@ paths:
 
     delete:
       tags:
-        - admin
+        - user
       summary: Supprime une réservation
       parameters:
         - in: path

@@ -85,7 +85,7 @@ def get_booking_details(userid):
 
 @app.route("/bookings/<userid>", methods=['POST'])
 def add_booking(userid):
-    if not(check_permission("admin")):
+    if not(check_permission("user")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
     
     req = request.get_json()
@@ -109,7 +109,7 @@ def add_booking(userid):
 
 @app.route("/bookings/<userid>", methods=['DELETE'])
 def del_booking(userid):
-    if not(check_permission("admin")):
+    if not(check_permission("user")):
         return make_response(jsonify({"error": "Unauthorized"}), 401)
 
     booking = bookings.find_one({"userid": userid})
