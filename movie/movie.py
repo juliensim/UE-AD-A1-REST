@@ -23,7 +23,7 @@ def write(movies):
 
 @app.before_request
 def authentification():
-    if requests.get(os.getenv("USER_" + os.getenv("MODE")) + "auth",headers={'X-Token':request.headers.get("X-Token")}).status_code == 401:
+    if requests.get(os.getenv("USER_" + os.getenv("MODE")) + "auth",headers={'X-Token':request.headers.get("X-Token")}).status_code != 200:
         return make_response(jsonify({"error": "Unknown user"}), 401)
     return
 
