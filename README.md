@@ -13,7 +13,7 @@
 
 Chaque service dispose de :
 - une documentation `.yaml` qui détaille les routes disponibles
-- une base MongoDB dédiée, dans un conteneur Docker (voir plus loin)
+- une table dédiée dans la base MongoDB globale, dans un conteneur Docker (voir plus loin)
 - un fichier JSON local pour l’initialisation (`databases/*.json`)
 
 
@@ -24,7 +24,7 @@ Chaque service dispose de :
 Toutes les requêtes vers les services doivent inclure le header **X-Token**. C'est une clé d'accès personnelle pour chaque utilisateur.
 
 On vérifie :
-- la validité du token (qu'un utilisateur )
+- la validité du token (qu'un utilisateur correspond)
 - le **niveau de permission** (`user` ou `admin`) si un niveau de permission doit être vérifié
 
 # Docker
